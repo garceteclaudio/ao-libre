@@ -1,0 +1,68 @@
+- Accounts: Character selection and login (#319)
+- Merge pull request #318 from ao-libre/reset-world
+- Label que muestra el oro (#284)
+- Revert "Fixed AMD desktop GPU extension detection bug. (#311)" (#317)
+- Bringing back helmets (#316)
+- Reset World on login screen
+- Encapsula conexión al servidor en ClientSystem.connect() (#315)
+- agregado icono de monedas delante del label y acomodado un poco la UI
+- Merge branch 'master' into Label-Gold
+- Merge pull request #314 from ao-libre/guardar-las-preferencias
+- Ahora se guardan las preferencias de sonido de sonido
+- arreglos despues del mergue con el master refactoriado
+- Merge branch 'master' into Label-Gold
+- Refactor music system (#313)
+- Cerrar app con Escape en loginscreen (#309)
+- Adding missing LocalReferenceSystem to world (#312)
+- Fixed AMD desktop GPU extension detection bug. (#311)
+- Fix music System (#310)
+- Ver mas cosas + fix random out of bounds en phisical combat system (#308)
+- Fix bug de botones (#307)
+- Sistema de muerte (#305)
+- Refactor - Sistema de parseo de comandos. (#303)
+- Simplifico el ServerRequestPreocessor. (#304)
+- Inyección automática de dependencias (Artemis) en toda la aplicación. (#300)
+- Update README.md
+- Inventario v2 (#301)
+- Fix design center (#294)
+- Adding CI workflow (#299)
+- Update ci.yml
+- Create ci.yml
+- Removing unused method
+- Merge pull request #298 from ao-libre/update-TextureArraySpriteBatch
+- Update TextureArraySpriteBatch.java
+- Agregamos documentación en los modulos (#297)
+- Fixing updates to send (#295)
+- Fixing all references issues (#296)
+- Update CHANGES.md
+- Merge pull request #293 from ao-libre/Derillo-patch-1
+- Sacamos caracter erroneo
+- Adding github action to release on tag pushed
+- Use java jpackage instead of downloading it
+- Moving to gradle 6.3 and java 14
+- Fix sound loading issues on build
+- Adding names to NPCs
+- Refactoring effects creation (#292)
+- Adding attack and usage intervals (#291)
+- Fix design center
+- Use logs just for debugging (#289)
+- Refactor/systems (#288)
+- Merge branch 'master' into Label-Gold
+- Batch refactor (#287)
+- Refactor WorldPos component (#285)
+- Label que muestra el oro
+- Carga de texturas via SpriteBach(+ array de texturas + LFU) (#277)
+- Implementacion del sistema de cuentas - Parte 2 (#282)
+- Primera implementación de un sistema de cuentas (#281)
+- Merge pull request #278 from ao-libre/room
+- todo
+- Merge branch 'master' into room
+- Fixes, pequeño refactor & limitado el tamaño mínimo de la ventana del juego. (#274)
+- Eliminados grupos de whatsapp, telegram y youtube (#276)
+- Gradle 6.0.1 -> 6.1.1 (#275)
+- Mejoras en el manejo de dependencias y chequeo del O.S. (#272)
+- Compresión  de gráficos e imágenes de partículas. (#273)
+- Retro-compatibilidad con Java 8 (#270)
+- Cambios menores en design. (#269)
+- Servidor verifica que la sala no este llena
+- Servidor verifica que todos en la sala estén listos

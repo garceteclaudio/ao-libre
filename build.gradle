@@ -1,0 +1,135 @@
+import org.gradle.internal.jvm.Jvm
+
+buildscript {
+    ext {
+        kotlin_version = '1.3.61'
+	    artemis_version = '2.2.0'
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
+        maven { url "https://oss.sonatype.org/content/repositories/releases/" }
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "net.onedaybeard.artemis:artemis-odb-gradle-plugin:$artemis_version"
+        classpath "net.onedaybeard.artemis:artemis-fluid-gradle-plugin:$artemis_version"
+    }
+}
+
+allprojects {
+    apply plugin: "idea"
+    apply plugin: "eclipse"
+	
+    group = 'Finisterra'
+    version = '0.1.15'
+
+    ext {
+        appName = 'Finisterra'
+
+        // Control global de las versiones de las dependencias.
+        gdxVersion = '1.10.0'               //Graphic Engine Library.
+        gdxControllerVersion = '2.2.1'      //Game Controller Extension for libGDX
+        kryoVersion = '4.0.2'               //Object Serialization API, override dependency of KryoNet.
+        artemisVersion = '2.3.0'            //Artemis EntityComponentSystem & Network manager (TCP/UDP)
+        artemisContribVersion = '2.4.0'     //Kinda the same but developed by someone else.
+        gdxAIVersion = '1.8.2'              //Artificial Intelligence
+	    tinyfdVersion = '3.2.1'
+	    jupiterVersion = '5.5.2'            //Test map caching.
+	    guavaVersion = '28.1-jre'           //Collection types used for map information.
+	    ini4jVersion = '0.5.4'
+	    kotlinxCoroutinesVersion = '1.3.3'  //Only used to scale images 2x.
+	    kaifu2xVersion = '0.4.0'
+	    reflectionsVersion = '0.9.11'       //Load indexed file information to reuse.
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
+        maven { url "https://oss.sonatype.org/content/repositories/releases/" }
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+}
+
+subprojects {
+
+    apply plugin: "java-library"
+
+    // Establecemos la version de Java a usar.
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    // Configuraciones del compilador Java
+    tasks.withType(JavaCompile) {
+	    options.encoding = "UTF-8"
+	    //options.compilerArgs << '-Xlint:unchecked'
+	    //options.deprecation = true
+    }
+
+    // Configuracion de resolucion de dependencias.
+    configurations.all {
+        resolutionStrategy {
+            // fail eagerly on version conflict (includes transitive dependencies)
+            // e.g. multiple different versions of the same dependency (group and name are equal)
+            failOnVersionConflict()
+
+            // prefer modules that are part of this build (multi-project or composite build) over external modules
+            preferProjectModules()
+
+            // cache dynamic versions for 10 minutes
+            cacheDynamicVersionsFor 10*60, 'seconds'
+
+            // don't cache changing modules at all
+            cacheChangingModulesFor 0, 'seconds'
+        }
+    }
+}
+
+configure(subprojects.findAll { it.name == 'server' || it.name == 'desktop' }) {
+    
+    apply plugin: "de.undercouch.download"
+	
+    ext {
+        jdkPath = Jvm.current().getJavaHome().path
+        JPackagePath = jdkPath.concat("/bin/jpackage")
+        prebuiltJRE = "${buildDir}/bundled-JRE"
+    }
+
+    // creates a replacement runtime via jlink command (much smaller than JPackage. Up to 38MB)
+    task jlink(type: Exec) {
+
+        // Overwrite previous bundled jre.
+        if (file(prebuiltJRE).exists()) {
+            delete(file(prebuiltJRE))
+        }
+
+        commandLine = [
+                jdkPath.concat("/bin/jlink"),
+                '--module-path', jdkPath.concat("/jmods"),
+                '--add-modules', 'java.base,java.desktop,jdk.unsupported,java.logging',
+                '--strip-debug',
+                '--no-header-files',
+                '--no-man-pages',
+                '--strip-native-commands',
+                '--vm=server',
+                '--compress=2',
+                '--output', prebuiltJRE
+        ] as List<String>
+
+        doLast {
+            // Some extra debloat.
+            delete(file("${prebuiltJRE}/conf"))
+            delete(file("${prebuiltJRE}/legal"))
+            delete fileTree("${prebuiltJRE}/bin").matching { include "api*.dll" }
+        }
+
+    }
+
+    ext {
+        // expose current version + build date to children projects
+        buildVersion = "$version-${new Date().format('yyyyMMddHHmmss')}"
+    }
+}

@@ -1,0 +1,149 @@
+import org.gradle.internal.os.OperatingSystem
+
+plugins {
+    id 'application'
+}
+
+sourceSets {
+    main.java.srcDirs = ["src/"]
+    test.java.srcDirs = ["test/"]
+    main.resources.srcDirs = ["resources/"] 
+}
+
+mainClassName = "server.ServerLauncher"
+
+test {
+    useJUnitPlatform()
+    failFast = true
+
+    testLogging {
+        // set options for log level LIFECYCLE
+        events "failed"
+        exceptionFormat "short"
+
+        // remove standard output/error logging from --info builds
+        // by assigning only 'failed' and 'skipped' events
+        info.events = ["failed", "skipped"]
+    }
+}
+
+dependencies {
+    implementation project(":shared")
+    implementation group: "net.onedaybeard.artemis", name: "artemis-odb-serializer-json", version: "$artemisVersion"
+    implementation group: "com.badlogicgames.gdx", name: "gdx-backend-lwjgl3", version: "$gdxVersion"
+	implementation group: "com.badlogicgames.gdx", name: "gdx-backend-headless", version: "$gdxVersion"
+	implementation group: "com.badlogicgames.gdx", name: "gdx-ai", version: "$gdxAIVersion"
+
+	testImplementation group: "org.junit.jupiter", name: "junit-jupiter-api", version: "$jupiterVersion"
+    testImplementation group: "org.junit.jupiter", name: "junit-jupiter-engine", version: "$jupiterVersion"
+    implementation group: "org.reflections", name: "reflections", version: "$reflectionsVersion"
+}
+
+task dist(type: Jar) {
+    from files(sourceSets.main.output.classesDirs)
+    from files(sourceSets.main.output.resourcesDir)
+    from configurations.compileClasspath
+	from configurations.runtimeClasspath
+
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+}
+
+// The run task added by the application plugin
+// is also of type JavaExec.
+tasks.withType(JavaExec) {
+    // Assign all Java system properties from
+    // the command line to the JavaExec task.
+    systemProperties System.properties
+    systemProperties.remove("java.endorsed.dirs")
+}
+
+dist.dependsOn classes
+
+tasks.dist.doLast {
+
+    // We copy all the dependencies .JAR into the input folder for JPackage.
+    copy {
+        from configurations.runtimeClasspath
+        into "${buildDir}/libs"
+    }
+
+}
+
+// Get current Operating System
+def OS = OperatingSystem.current()
+
+// Determine where the bundled application is going to be.
+def releasePath = "${buildDir}/releases"
+
+// creates application bundle (executable + runtime)
+task bundle(type: Exec, dependsOn: [dist, jlink]) {
+
+    // Overwrite previous bundled application.
+    if (file(releasePath).exists()) {
+        delete(file(releasePath))
+    } else {
+        file(releasePath).mkdirs()
+    }
+
+    def commands = [
+            JPackagePath,
+            '--type', 'app-image',
+            '--name', project.appName,
+            '--vendor', "Argentum Online Libre",
+            '--app-version', "${project.version}",
+            '--dest', releasePath,
+            '--runtime-image', prebuiltJRE,
+            '--input', "${buildDir}/libs",
+            '--main-class', project.mainClassName,
+            '--main-jar', "${project.name}-${project.version}.jar"
+    ]
+
+    if (OS.isMacOsX()) {
+        commands << "--java-options"
+        commands << "-XstartOnFirstThread"
+    }
+
+    commandLine = commands
+
+    doLast() {
+
+        copy {
+
+            from files(sourceSets.main.output.resourcesDir)
+			from ("$projectDir/Server.json") {
+                expand (version: "$buildVersion")
+            }
+            from file("$projectDir/Chars.json")
+
+            switch(OS) {
+                case OperatingSystem.MAC_OS:
+                    into("${releasePath}/${project.appName}.app/Contents/Resources/")
+                    break;
+                case OperatingSystem.WINDOWS:
+                    into("${releasePath}/${project.appName}")
+                    break;
+                case OperatingSystem.LINUX:
+                    into("${releasePath}/${project.appName}/bin")
+                    break;
+            }
+
+            // Debloat for Windows users.
+            delete fileTree("${releasePath}/${project.appName}/bin").matching { include "*.dll" exclude "applauncher.dll" }
+            delete fileTree("${releasePath}/${project.appName}/app").matching { include "api*.dll" }
+            delete file("${releasePath}/${project.appName}/.jpackage.xml")
+
+            System.out.println("Application '${project.appName}' packaged.")
+            System.out.println(" -> location: ${releasePath}/${project.appName}/")
+        }
+    }
+
+    task packageDistribution(type: Zip, dependsOn:[bundle]) {
+        archiveFileName = "finisterra-server-".concat((OS.isMacOsX() ? "MacOS" : OS.isLinux() ? "Linux" : "Windows")).concat(".zip")
+        destinationDirectory = file("${project.buildDir}/releases/")
+
+        from "${releasePath}/${project.appName}".concat(OS.isMacOsX() ? ".app" : "")
+    }
+}
+

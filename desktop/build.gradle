@@ -1,0 +1,133 @@
+import org.gradle.internal.os.OperatingSystem
+
+plugins {
+    id 'application'
+}
+
+sourceSets {
+    main.java.srcDirs = ["src/"]
+    main.resources.srcDirs = ["assets/"]
+}
+
+dependencies {
+    api project(":client")
+    api group: "com.badlogicgames.gdx", name: "gdx-backend-lwjgl3", version: "$gdxVersion"
+    api group: "com.badlogicgames.gdx", name: "gdx-freetype-platform", version: "$gdxVersion", classifier: "natives-desktop"
+}
+
+mainClassName = "launcher.DesktopLauncher"
+
+// Get current Operating System
+def OS = OperatingSystem.current()
+
+if (OS.isMacOsX()) {
+    run {
+        jvmArgs += '-XstartOnFirstThread'
+    }
+}
+
+task dist(type: Jar) {
+    dependsOn classes
+    from files(sourceSets.main.output.classesDirs)
+    from configurations.compileClasspath
+    from configurations.runtimeClasspath
+
+    manifest {
+        attributes 'Main-Class': project.mainClassName
+    }
+
+    doLast {
+        copy {
+            from configurations.runtimeClasspath
+            into("$buildDir/libs")
+        }
+    }
+
+}
+
+run.dependsOn(classes)
+
+// Determine where the bundled application is going to be.
+def releasePath = "${buildDir}/releases"
+
+// Short-named variable that represents where the Assets are.
+def assetsPath = sourceSets.main.resources.srcDirs[0].path
+
+// creates application bundle (executable + runtime)
+task bundle(type: Exec, dependsOn: [dist, jlink]) {
+
+    // Overwrite previous bundled application.
+    if (file(releasePath).exists()) {
+        delete(file(releasePath))
+    } else {
+        file(releasePath).mkdirs()
+    }
+
+    def commands = [
+            JPackagePath,
+            '--type', 'app-image',
+            '--name', project.appName,
+            '--vendor', "Argentum Online Libre",
+            '--app-version', "${project.version}",
+            '--dest', releasePath,
+            '--runtime-image', prebuiltJRE,
+            '--input', "${buildDir}/libs",
+            '--main-class', project.mainClassName,
+            '--main-jar', "${project.name}-${project.version}.jar"
+    ]
+
+    switch (OS) {
+        case OperatingSystem.MAC_OS:
+            commands << "--icon"
+            commands << assetsPath.concat("/data/icons/ao.icns")
+            commands << "--java-options"
+            commands << "-XstartOnFirstThread"
+            break;
+        case OperatingSystem.WINDOWS:
+            commands << "--icon"
+            commands << assetsPath.concat("/data/icons/ao.ico")
+            break;
+        case OperatingSystem.LINUX:
+            commands << "--icon"
+            commands << assetsPath.concat("/data/icons/ao.png")
+            break;
+    }
+
+    commandLine = commands
+
+    doLast() {
+
+        copy {
+            from(assetsPath)
+            from("${projectDir}/Config.json")
+
+            switch (OS) {
+                case OperatingSystem.MAC_OS:
+                    into("${releasePath}/${project.appName}.app/Contents/Resources/")
+                    break;
+                case OperatingSystem.WINDOWS:
+                    into("${releasePath}/${project.appName}")
+                    break;
+                case OperatingSystem.LINUX:
+                    into("${releasePath}/${project.appName}/bin")
+                    break;
+            }
+        }
+
+        // Debloat for Windows users.
+        delete fileTree("${releasePath}/${project.appName}/bin").matching { include "*.dll" exclude "applauncher.dll" }
+        delete fileTree("${releasePath}/${project.appName}/app").matching { include "api*.dll" }
+        delete file("${releasePath}/${project.appName}/.jpackage.xml")
+
+        System.out.println("Application '${project.appName}' packaged.")
+        System.out.println(" -> location: ${releasePath}/${project.appName}/")
+
+    }
+
+    task packageDistribution(type: Zip, dependsOn: [bundle]) {
+        archiveFileName = "finisterra-client-".concat((OS.isMacOsX() ? "MacOS" : OS.isLinux() ? "Linux" : "Windows")).concat(".zip")
+        destinationDirectory = file("${project.buildDir}/releases/")
+
+        from "${releasePath}/${project.appName}".concat(OS.isMacOsX() ? ".app" : "")
+    }
+}
